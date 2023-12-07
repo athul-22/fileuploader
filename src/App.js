@@ -21,8 +21,8 @@ function App() {
 
     setUploading(true);
    
-    // axios.post('http://localhost:3001/upload', formData, {
-      axios.post('https://fileuploader-backend-athul-22.vercel.app/upload', formData, {
+    axios.post('http://localhost:3001/upload', formData, {
+      //axios.post('https://fileuploader-backend-athul-22.vercel.app/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
@@ -50,7 +50,7 @@ function App() {
 
   const fetchFiles = () => {
     // Fetch all files from the server
-    axios.get('https://fileuploader-backend-athul-22.vercel.app/files')
+    axios.get('http://localhost:3001/files')
       .then(res => {
         setFiles(res.data);
       })
