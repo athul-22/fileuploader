@@ -1,5 +1,8 @@
+// frontend/src/App.js
+
 import React, { useState, useEffect } from "react";
 import axios from 'axios';
+import Compressor from 'image-compressor.js';
 import { Divider, Drawer, List, ListItem, ListItemText, Button, Typography } from "@mui/material";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -10,46 +13,69 @@ function App() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  const upload = () => {
+  const compressAndUpload = async () => {
     if (!file) {
       toast.error('Please choose a file');
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     setUploading(true);
-   
-    axios.post('http://localhost:3001/upload', formData, {
-      //axios.post('https://fileuploader-backend-athul-22.vercel.app/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
-      onUploadProgress: (progressEvent) => {
-        // Calculate and display the upload progress
-        const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-        console.log(progress);
+
+    if (file.size > 4 * 1024 * 1024) {
+      try {
+        const compressedFile = await compressFile(file);
+        await uploadFile(compressedFile);
+      } catch (error) {
+        console.error(error);
+        toast.error('Error compressing or uploading file');
       }
-    })
-      .then(res => {
-        console.log(res.data);
-        // Refresh the files after successful upload
-        fetchFiles();
-        toast.success('File uploaded successfully');
-      })
-      .catch(err => {
-        console.error(err);
-        toast.error('Error uploading file');
-      })
-      .finally(() => {
-        setUploading(false);
-        setFile(null);
+    } else {
+      await uploadFile(file);
+    }
+
+    setUploading(false);
+    setFile(null);
+  };
+
+  const compressFile = (file) => {
+    return new Promise((resolve, reject) => {
+      new Compressor(file, {
+        quality: 0.6,
+        success: (result) => {
+          resolve(result);
+        },
+        error: (error) => {
+          reject(error);
+        },
       });
+    });
+  };
+
+  const uploadFile = async (fileToUpload) => {
+    const formData = new FormData();
+    formData.append('file', fileToUpload);
+
+    try {
+      const response = await axios.post('http://localhost:3001/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+          console.log(progress);
+        }
+      });
+
+      console.log(response.data);
+      fetchFiles();
+      toast.success('File uploaded successfully');
+    } catch (error) {
+      console.error(error);
+      toast.error('Error uploading file');
+    }
   };
 
   const fetchFiles = () => {
-    // Fetch all files from the server
     axios.get('http://localhost:3001/files')
       .then(res => {
         setFiles(res.data);
@@ -58,14 +84,13 @@ function App() {
   };
 
   useEffect(() => {
-    // Fetch files when the component mounts
     fetchFiles();
   }, []);
 
   return (
     <div style={{ backgroundColor: 'white', height: 'auto', width: '500px', padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '10px' }}>
       <div>
-        <p style={{fontSize:'20px',fontWeight:'bold'}}>File Uploader</p>
+        <p style={{ fontSize: '20px', fontWeight: 'bold' }}>File Uploader</p>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', }}>
           <label htmlFor="fileInput" style={{ width: '300px', marginBottom: '10px', cursor: 'pointer', border: '1.5px dashed #ccc', padding: '50px', borderRadius: '5px', }}>
             {file ? `Selected file: ${file.name}` : 'Choose a file'}
@@ -80,7 +105,7 @@ function App() {
         </div>
         <button
           type="button"
-          onClick={upload}
+          onClick={compressAndUpload}
           style={{
             fontSize: '15px',
             width: '100%',
